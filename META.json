@@ -28,7 +28,7 @@
       },
       "configure" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : 0
+            "ExtUtils::MakeMaker" : "6.62"
          }
       },
       "runtime" : {
@@ -42,5 +42,5 @@
       }
    },
    "release_status" : "testing",
-   "version" : "0.2_01"
+   "version" : "0.2_02"
 }
