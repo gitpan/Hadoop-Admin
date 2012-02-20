@@ -1,27 +1,28 @@
 ---
 abstract: 'Module for administration of Hadoop clusters'
 author:
-  - 'Charles Wimmer'
-  - charles@wimmer.net
+  - 'Charles A. Wimmmer (charles@wimmer.net)'
 build_requires:
-  ExtUtils::MakeMaker: 6.62
+  English: 0
+  TAP::Harness::JUnit: 0
+  Test::More: 0
 configure_requires:
-  ExtUtils::MakeMaker: 6.62
-dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.112150'
-license: unknown
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.300008, CPAN::Meta::Converter version 2.120351'
+license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
 name: Hadoop-Admin
-no_index:
-  directory:
-    - t
-    - inc
 requires:
+  Data::Dumper: 0
   JSON: 0
   LWP::Protocol::https: 0
   LWP::Protocol::socks: 0
   LWP::UserAgent: 0
-  TAP::Harness::JUnit: 0
-version: 0.2_02
+  strict: 0
+  warnings: 0
+resources:
+  repository: git://github.com/cwimmer/hadoop-admin.git
+version: 0.2_05

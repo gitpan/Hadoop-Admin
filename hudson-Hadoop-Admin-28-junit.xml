@@ -1,0 +1,71 @@
+<testsuites>
+  <testsuite failures="0"
+             errors="0"
+             time="0.56589412689209"
+             tests="7"
+             name="00-load_t">
+    <testcase time="0.115489959716797"
+              name="1 - use Hadoop::Admin;"></testcase>
+    <testcase time="0.000625133514404297"
+              name="2 - Hadoop::Admin-&gt;can('new')"></testcase>
+    <testcase time="0.444674015045166"
+              name="3 - The object isa Hadoop::Admin"></testcase>
+    <testcase time="0.000396966934204102"
+              name="4 - get_namenode() works"></testcase>
+    <testcase time="0.000226974487304688"
+              name="5 - get_jobtracker() works"></testcase>
+    <testcase time="0.000217914581298828"
+              name="6 - get_secondarynamenode() works"></testcase>
+    <testcase time="0.000248193740844727"
+              name="7 - get_socksproxy() works"></testcase>
+    <testcase time="0.00375795364379883" name="(teardown)" />
+    <system-out><![CDATA[ok 1 - use Hadoop::Admin;
+ok 2 - Hadoop::Admin->can('new')
+ok 3 - The object isa Hadoop::Admin
+ok 4 - get_namenode() works
+ok 5 - get_jobtracker() works
+ok 6 - get_secondarynamenode() works
+ok 7 - get_socksproxy() works
+1..7
+]]></system-out>
+    <system-err></system-err>
+  </testsuite>
+  <testsuite failures="0"
+             errors="0"
+             time="0.626682996749878"
+             tests="1"
+             name="01-parse-nn-jmx_t">
+    <testcase time="0.622514009475708" name="1 - Parse Live List"></testcase>
+    <testcase time="0.00371813774108887" name="(teardown)" />
+    <system-out><![CDATA[ok 1 - Parse Live List
+1..1
+]]></system-out>
+    <system-err></system-err>
+  </testsuite>
+  <testsuite failures="0"
+             errors="0"
+             time="0.585405111312866"
+             tests="1"
+             name="02-parse-jt-jmx_t">
+    <testcase time="0.581229209899902" name="1 - Parse Live List"></testcase>
+    <testcase time="0.00374794006347656" name="(teardown)" />
+    <system-out><![CDATA[ok 1 - Parse Live List
+1..1
+]]></system-out>
+    <system-err></system-err>
+  </testsuite>
+  <testsuite failures="0"
+             errors="0"
+             time="0.0709059238433838"
+             tests="1"
+             name="04-pod_t">
+    <testcase time="0.059237003326416" name="(init)" />
+    <testcase time="0.0104718208312988"
+              name="1 - POD test for blib/lib/Hadoop/Admin.pm"></testcase>
+    <testcase time="0.00119709968566895" name="(teardown)" />
+    <system-out><![CDATA[1..1
+ok 1 - POD test for blib/lib/Hadoop/Admin.pm
+]]></system-out>
+    <system-err></system-err>
+  </testsuite>
+</testsuites>

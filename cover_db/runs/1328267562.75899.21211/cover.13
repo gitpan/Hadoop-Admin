@@ -1,0 +1,1 @@
+{"runs":{"1328267562.75899.21211":{"count":{},"finish":1.32826756192784e+15,"digests":{"t/04-pod.t":"a9a291c86684944d3a4400e376132d84"},"collected":["branch","condition","statement","subroutine","time"],"perl":"118.53.46.49.48.46.49","vec":{},"run":"t/04-pod.t","OS":"darwin","start":1.32826756187664e+15}}}

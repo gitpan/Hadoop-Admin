@@ -8,6 +8,10 @@
 
 Hadoop::Admin - Module for administration of Hadoop clusters
 
+=head1 VERSION
+
+version 0.2_05
+
 =head1 SYNOPSIS
 
     use Hadoop::Admin; 
@@ -41,17 +45,14 @@ in versions 0.20.204.0, 0.23.0 or later.
 
 
 package Hadoop::Admin;
-
+{
+  $Hadoop::Admin::VERSION = '0.2_05';
+}
 
 use strict;
 use warnings;
 use LWP::UserAgent;
 use JSON -support_by_pp;
-
-use version;
-our $VERSION='0.2_02';
-$VERSION = eval $VERSION;
-
 
 =pod
 
@@ -397,7 +398,7 @@ sub gather_jt_jmx($$){
     my $jmx_url= "http://".$self->{'jobtracker'}.":50030/jmx?qry=$qry";
     my $response = $self->{'ua'}->get($jmx_url);
     if (! $response->is_success) {
-	print "Can't get JMX data from Namenode: $@";
+	print "Can't get JMX data from JobTracker: $@";
 	exit(1);
     }
     $self->parse_jt_jmx($response->decoded_content);

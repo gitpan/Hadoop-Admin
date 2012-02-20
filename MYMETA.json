@@ -1,10 +1,9 @@
 {
    "abstract" : "Module for administration of Hadoop clusters",
    "author" : [
-      "Charles Wimmer",
-      "charles@wimmer.net"
+      "Charles A. Wimmer (charles@wimmer.net)"
    ],
-   "dynamic_config" : 1,
+   "dynamic_config" : 0,
    "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.112150",
    "license" : [
       "unknown"
@@ -23,12 +22,12 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "6.62"
+            "ExtUtils::MakeMaker" : "6.55"
          }
       },
       "configure" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "6.62"
+            "ExtUtils::MakeMaker" : "6.55"
          }
       },
       "runtime" : {
@@ -42,5 +41,5 @@
       }
    },
    "release_status" : "testing",
-   "version" : "0.2_02"
+   "version" : "0.2_03"
 }

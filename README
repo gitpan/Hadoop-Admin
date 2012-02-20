@@ -1,1 +1,13 @@
-Perl modules used to administer Hadoop Clusters.
+
+
+This archive contains the distribution Hadoop-Admin,
+version 0.2_05:
+
+  Module for administration of Hadoop clusters
+
+This software is copyright (c) 2012 by Charles Wimmer.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+
