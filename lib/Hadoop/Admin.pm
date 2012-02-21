@@ -10,7 +10,7 @@ Hadoop::Admin - Module for administration of Hadoop clusters
 
 =head1 VERSION
 
-version 0.2_05
+version 0.3
 
 =head1 SYNOPSIS
 
@@ -43,13 +43,13 @@ in versions 0.20.204.0, 0.23.0 or later.
 
 =cut
 
-
+use strict;
 package Hadoop::Admin;
 {
-  $Hadoop::Admin::VERSION = '0.2_05';
+  $Hadoop::Admin::VERSION = '0.3';
 }
 
-use strict;
+
 use warnings;
 use LWP::UserAgent;
 use JSON -support_by_pp;
@@ -82,7 +82,7 @@ NameNode and JobTracker.
 =back
 
 =cut
-sub new(){
+sub new{
 
     Carp::croak("Options should be key/value pairs, not hash reference") 
         if ref($_[1]) eq 'HASH'; 
@@ -102,6 +102,9 @@ sub new(){
     if ( exists $self->{'conf'}->{'secondarynamenode'} ){
 	$self->{'secondarynamenode'}=$self->{'conf'}->{'secondarynamenode'};
     }
+    if ( exists $self->{'conf'}->{'resourcemanager'} ){
+	$self->{'resourcemanager'}=$self->{'conf'}->{'resourcemanager'};
+    }
     if ( exists $self->{'conf'}->{'socksproxy'} ){
 	$self->{'socksproxy'}=$self->{'conf'}->{'socksproxy'};
     }
@@ -118,7 +121,7 @@ sub new(){
 	my $test_nn_string;
 	{
 	    local $/=undef;
-	    open my $fh, $self->{'conf'}->{'_test_namenodeinfo'} or die "Couldn't open file: $!";
+	    open (my $fh, '<', $self->{'conf'}->{'_test_namenodeinfo'}) or die "Couldn't open file: $!";
 	    $test_nn_string = <$fh>;
 	    close $fh;
 	}
@@ -129,11 +132,12 @@ sub new(){
 	}
     }
     
+    ## Hooks for testing during builds.  Doesn't connect to a real cluster.
     if ( exists $self->{'conf'}->{'_test_jobtrackerinfo'} ){
 	my $test_jt_string;
 	{
 	    local $/=undef;
-	    open my $fh, $self->{'conf'}->{'_test_jobtrackerinfo'} or die "Couldn't open file: $!";
+	    open(my $fh, '<', $self->{'conf'}->{'_test_jobtrackerinfo'}) or die "Couldn't open file: $!";
 	    $test_jt_string = <$fh>;
 	    close $fh;
 	}
@@ -141,6 +145,22 @@ sub new(){
     }else{
 	if ( exists $self->{'jobtracker'} ){
 	    $self->gather_jt_jmx('JobTrackerInfo');
+	}
+    }
+    
+    ## Hooks for testing during builds.  Doesn't connect to a real cluster.
+    if ( exists $self->{'conf'}->{'_test_resourcemanagerinfo'} ){
+	my $test_rm_string;
+	{
+	    local $/=undef;
+	    open(my $fh, '<', $self->{'conf'}->{'_test_resourcemanagerinfo'}) or die "Couldn't open file: $!";
+	    $test_rm_string = <$fh>;
+	    close $fh;
+	}
+	$self->parse_rm_jmx($test_rm_string);
+    }else{
+	if ( exists $self->{'resourcemanager'} ){
+	    $self->gather_rm_jmx('RMNMInfo');
 	}
     }
     
@@ -161,7 +181,7 @@ Returns the JobTracker from instantiation
 =back
 
 =cut
-sub get_namenode(){
+sub get_namenode{
     my $self=shift;
     return $self->{'namenode'};
 }
@@ -179,12 +199,12 @@ Returns the JobTracker from instantiation
 =back
 
 =cut
-sub get_jobtracker(){
+sub get_jobtracker{
     my $self=shift;
     return $self->{'jobtracker'};
 }
 
-sub get_secondarynamenode(){
+sub get_secondarynamenode{
     my $self=shift;
     return $self->{'secondarynamenode'};
 }
@@ -202,7 +222,7 @@ Returns the Socks Proxy from instantiation
 =back
 
 =cut
-sub get_socksproxy(){
+sub get_socksproxy{
     my $self=shift;
     return $self->{'socksproxy'};
 }
@@ -225,7 +245,7 @@ Array containing hostnames.
 =back
 
 =cut
-sub datanode_live_list(){
+sub datanode_live_list{
     my $self=shift;
     return keys %{$self->{'NameNodeInfo_LiveNodes'}};
 }
@@ -247,7 +267,7 @@ Array containing hostnames.
 =back
 
 =cut
-sub datanode_dead_list(){
+sub datanode_dead_list{
     my $self=shift;
     return keys %{$self->{'NameNodeInfo_DeadNodes'}};
 }
@@ -269,11 +289,37 @@ Array containing hostnames.
 =back
 
 =cut
-sub datanode_decom_list(){
+sub datanode_decom_list{
     my $self=shift;
     return keys %{$self->{'NameNodeInfo_DecomNodes'}};
 }
 
+
+=pod
+
+=head2 nodemanager_live_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the current live NodeManagers.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
+
+=cut
+sub nodemanager_live_list{
+    my $self=shift;
+    my @returnValue=();
+    foreach my $hostref ( @{$self->{'RMNMInfo_LiveNodeManagers'}} ) {
+	push @returnValue, $hostref->{'HostName'};
+    }
+    return @returnValue;
+}
 
 =pod
 
@@ -292,7 +338,7 @@ Array containing hostnames.
 =back
 
 =cut
-sub tasktracker_live_list(){
+sub tasktracker_live_list{
     my $self=shift;
     my @returnValue=();
     use Data::Dumper;
@@ -304,7 +350,7 @@ sub tasktracker_live_list(){
 
 =pod
 
-=head2 tasktracker_live_list ()
+=head2 tasktracker_blacklist_list ()
 
 =over 4
 
@@ -319,7 +365,7 @@ Array containing hostnames.
 =back
 
 =cut
-sub tasktracker_blacklist_list(){
+sub tasktracker_blacklist_list{
     my $self=shift;
     my @returnValue=();
     foreach my $hostref ( @{$self->{'JobTrackerInfo_BlacklistedNodesInfoJson'}} ) {
@@ -330,7 +376,7 @@ sub tasktracker_blacklist_list(){
 
 =pod
 
-=head2 tasktracker_live_list ()
+=head2 tasktracker_graylist_list ()
 
 =over 4
 
@@ -345,7 +391,7 @@ Array containing hostnames.
 =back
 
 =cut
-sub tasktracker_graylist_list(){
+sub tasktracker_graylist_list{
     my $self=shift;
     my @returnValue=();
     foreach my $hostref ( @{$self->{'JobTrackerInfo_BlacklistedNodesInfoJson'}} ) {
@@ -354,7 +400,7 @@ sub tasktracker_graylist_list(){
     return @returnValue;
 }
 
-sub gather_nn_jmx($$){
+sub gather_nn_jmx{
     my $self=shift;
     my $bean=shift;
     my $qry;
@@ -370,7 +416,7 @@ sub gather_nn_jmx($$){
     $self->parse_nn_jmx($response->decoded_content);
 }
 
-sub parse_nn_jmx($$){
+sub parse_nn_jmx{
     my $self=shift;
     my $nn_content=shift;
     my $json=new JSON();
@@ -388,7 +434,7 @@ sub parse_nn_jmx($$){
     }
 }
 
-sub gather_jt_jmx($$){
+sub gather_jt_jmx{
     my $self=shift;
     my $bean=shift;
     my $qry;
@@ -405,7 +451,7 @@ sub gather_jt_jmx($$){
 
 }
 
-sub parse_jt_jmx(){
+sub parse_jt_jmx{
     my $self=shift;
     my $jt_content=shift;
     my $json=JSON->new();
@@ -418,6 +464,37 @@ sub parse_jt_jmx(){
 	    $self->{'JobTrackerInfo_AliveNodesInfoJson'}=$json->allow_nonref->utf8->relaxed->escape_slash->loose->allow_singlequote->allow_barekey->pretty->decode($bean->{AliveNodesInfoJson});
 	    $self->{'JobTrackerInfo_BlacklistedNodesInfoJson'}=$json->allow_nonref->utf8->relaxed->escape_slash->loose->allow_singlequote->allow_barekey->pretty->decode($bean->{BlacklistedNodesInfoJson});
 	    $self->{'JobTrackerInfo_GraylistedNodesInfoJson'}=$json->allow_nonref->utf8->relaxed->escape_slash->loose->allow_singlequote->allow_barekey->pretty->decode($bean->{GraylistedNodesInfoJson});
+	}
+	
+    }
+}
+sub gather_rm_jmx{
+    my $self=shift;
+    my $bean=shift;
+    my $qry;
+    if ($bean eq "RMNMInfo"){
+	$qry='Hadoop%3Aservice%3DResourceManager%2Cname%3DRMNMInfo';
+    }
+    my $jmx_url= "http://".$self->{'resourcemanager'}.":8088/jmx?qry=$qry";
+    my $response = $self->{'ua'}->get($jmx_url);
+    if (! $response->is_success) {
+	print "Can't get JMX data from ResourceManager: $@";
+	exit(1);
+    }
+    $self->parse_rm_jmx($response->decoded_content);
+}
+
+sub parse_rm_jmx{
+    my $self=shift;
+    my $rm_content=shift;
+    my $json=JSON->new();
+    my $json_text = $json->allow_nonref->utf8->relaxed->escape_slash->loose->allow_singlequote->allow_barekey->pretty->decode($rm_content);
+    foreach my $bean (@{$json_text->{beans}}){
+	foreach my $var (keys %{$bean}){
+	    $self->{"RMNMInfo_$var"}=$bean->{$var};
+	}
+	if ($bean->{name} eq "Hadoop:service=ResourceManager,name=RMNMInfo"){
+	    $self->{'RMNMInfo_LiveNodeManagers'}=$json->allow_nonref->utf8->relaxed->escape_slash->loose->allow_singlequote->allow_barekey->pretty->decode($bean->{LiveNodeManagers});
 	}
 	
     }
@@ -453,9 +530,53 @@ http://search.cpan.org/~cwimmer/
 
 =head1 AUTHOR
 
-Copyright (C) 2012 Charles Wimmer.
-This program is free software; you can redistribute and/or modify program
-under the same terms as Perl itself or in terms of Gnu General Public
-license v2 or later.
+This software is Copyright (c) 2012 by Charles A. Wimmer.
+
+This is free software, licensed under:
+
+  The (three-clause) BSD License
+
+The BSD License
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+  * Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution. 
+
+  * Neither the name of Charles A. Wimmer nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission. 
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
+
+=begin Pod::Coverage
+
+gather_jt_jmx
+gather_nn_jmx
+gather_rm_jmx
+get_jobtracker
+get_secondarynamenode
+get_socksproxy
+parse_jt_jmx
+parse_nn_jmx
+parse_rm_jmx
+
+=end Pod::Coverage

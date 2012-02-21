@@ -13,15 +13,18 @@ my %WriteMakefileArgs = (
   "AUTHOR" => "Charles A. Wimmmer (charles\@wimmer.net)",
   "BUILD_REQUIRES" => {
     "English" => 0,
+    "Pod::Coverage::TrustPod" => 0,
     "TAP::Harness::JUnit" => 0,
-    "Test::More" => 0
+    "Test::More" => 0,
+    "Test::Perl::Critic" => 0,
+    "Test::Pod::Coverage" => 0
   },
   "CONFIGURE_REQUIRES" => {
     "ExtUtils::MakeMaker" => "6.30"
   },
   "DISTNAME" => "Hadoop-Admin",
   "EXE_FILES" => [],
-  "LICENSE" => "perl",
+  "LICENSE" => "bsd",
   "NAME" => "Hadoop::Admin",
   "PREREQ_PM" => {
     "Data::Dumper" => 0,
@@ -32,7 +35,7 @@ my %WriteMakefileArgs = (
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "0.2_05",
+  "VERSION" => "0.3",
   "test" => {
     "TESTS" => "t/*.t"
   }
