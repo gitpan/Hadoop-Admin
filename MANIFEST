@@ -2,7 +2,6 @@ Changes
 LICENSE
 MANIFEST
 META.yml
-MYMETA.json
 Makefile.PL
 README
 README.md
@@ -13,6 +12,7 @@ t/01-parse-nn-jmx.t
 t/02-parse-jt-jmx.t
 t/04-pod.t
 t/05-parse-rm-jmx.t
+t/06-error-conditions.t
 t/author-critic.t
 t/data/ab.jobtrackerinfo
 t/data/ab.namenodeinfo

@@ -1,165 +1,159 @@
-# ****************************************************************************
-#
-#   POD HEADER
-#
-# ****************************************************************************
-
-=head1 NAME
-
-Hadoop::Admin - Module for administration of Hadoop clusters
-
-=head1 VERSION
-
-version 0.3
-
-=head1 SYNOPSIS
-
-    use Hadoop::Admin; 
-
-    my $cluster=Hadoop::Admin->new({
-      'namenode'          => 'namenode.host.name',
-      'jobtracker'        => 'jobtracker.host.name',
-    });
-
-    print $cluster->datanode_live_list();
-
-
-=head1 DESCRIPTION
-
-This module connects to Hadoop servers using http.  The JMX Proxy
-Servlet is queried for specific mbeans.
-
-This module requires Hadoop the changes in
-https://issues.apache.org/jira/browse/HADOOP-7144.  They are available
-in versions 0.20.204.0, 0.23.0 or later.
-
-=head1 INTERFACE FUNCTIONS
-
-=for comment After this the Puclic interface functions are introduced
-=for comment you close the blockquote by inserting POD footer
-
-=for html
-<BLOCKQUOTE>
-
-=cut
-
 use strict;
 package Hadoop::Admin;
 {
-  $Hadoop::Admin::VERSION = '0.3';
+  $Hadoop::Admin::VERSION = '0.4';
 }
-
-
 use warnings;
+use Moose;
 use LWP::UserAgent;
 use JSON -support_by_pp;
 
-=pod
+has 'namenode' => (
+    is  => 'ro',
+    isa => 'Str',
+    reader => 'get_namenode',
+    predicate => 'has_namenode',
+    );
 
-=head2 new ()
+has 'namenode_port' => (
+    is      => 'ro',
+    isa     => 'Int',
+    default => '50070',
+    reader  => 'get_namenode_port',
+    predicate => 'has_namenode_port',
+    );
 
-=over 4
+has 'jobtracker' => (
+    is  => 'ro',
+    isa => 'Str',
+    reader => 'get_jobtracker',
+    predicate => 'has_jobtracker',
+    );
 
-=item Description
+has 'jobtracker_port' => (
+    is      => 'ro',
+    isa     => 'Int',
+    default => '50030',
+    reader  => 'get_jobtracker_port',
+    predicate => 'has_jobtracker_port',
+    );
 
-Create a new instance of the Hadoop::Admin class.  
+has 'secondarynamenode' => (
+    is  => 'ro',
+    isa => 'Str',
+    reader => 'get_secondarynamenode',
+    predicate => 'has_secondarynamenode',
+    );
 
-The method requires a hash containing at minimum the namenode's, and
-the jobtracker's hostnames.  Optionally, you may provide a socksproxy
-for the http connection.
+has 'resourcemanager' => (
+    is  => 'ro',
+    isa => 'Str',
+    reader => 'get_resourcemanager',
+    predicate => 'has_resourcemanager',
+    );
 
-Creation of this object will cause an immediate querry to both the
-NameNode and JobTracker.
+has 'resourcemanager_port' => (
+    is      => 'ro',
+    isa     => 'Int',
+    default => '8088',
+    reader  => 'get_resourcemanager_port',
+    predicate => 'has_resourcemanager_port',
+    );
 
-=item namenode => <hostname>
+has 'socksproxy' => (
+    is  => 'ro',
+    isa => 'Str',
+    reader => 'get_socksproxy',
+    predicate => 'has_socksproxy',
+    );
 
-=item jobtracker => <hostname>
+has 'socksproxy_port' => (
+    is      => 'ro',
+    isa     => 'Int',
+    default => '1080',
+    reader  => 'get_socksproxy_port',
+    predicate => 'has_socksproxy_port',
+    );
 
-=item socksproxy => <hostname>
+has 'ua' => (
+    is  => 'rw',
+    isa => 'Object',
+    predicate => 'has_ua',
+    );
 
-=item Returns newly created object.
+has '_test_namenodeinfo' => (
+    is  => 'ro',
+    isa => 'Str',
+    );
 
-=back
+has '_test_jobtrackerinfo' => (
+    is  => 'ro',
+    isa => 'Str',
+    );
 
-=cut
-sub new{
+has '_test_resourcemanagerinfo' => (
+    is  => 'ro',
+    isa => 'Str',
+    );
 
-    Carp::croak("Options should be key/value pairs, not hash reference") 
-        if ref($_[1]) eq 'HASH'; 
+# ABSTRACT: Module for administration of Hadoop clusters
 
-    my($class, %cnf) = @_;
 
-    my $self={
-	conf=>{%cnf},
-    };
+sub BUILD{
 
-    if ( exists $self->{'conf'}->{'namenode'} ){
-	$self->{'namenode'}=$self->{'conf'}->{'namenode'};
+    my $self=shift;
+
+    if ( $self->has_resourcemanager && $self->has_jobtracker ){
+	die "Can't have both ResourceManager and JobTracker\n";
     }
-    if ( exists $self->{'conf'}->{'jobtracker'} ){
-	$self->{'jobtracker'}=$self->{'conf'}->{'jobtracker'};
-    }
-    if ( exists $self->{'conf'}->{'secondarynamenode'} ){
-	$self->{'secondarynamenode'}=$self->{'conf'}->{'secondarynamenode'};
-    }
-    if ( exists $self->{'conf'}->{'resourcemanager'} ){
-	$self->{'resourcemanager'}=$self->{'conf'}->{'resourcemanager'};
-    }
-    if ( exists $self->{'conf'}->{'socksproxy'} ){
-	$self->{'socksproxy'}=$self->{'conf'}->{'socksproxy'};
-    }
 
-    $self->{'ua'} = new LWP::UserAgent();
-    if ( exists $self->{'socksproxy'} ){
-	$self->{'ua'}->proxy([qw(http https)] => 'socks://'.$self->{'socksproxy'}.':1080');
+    $self->ua(new LWP::UserAgent());
+    if ( defined $self->get_socksproxy ){
+	$self->ua->proxy([qw(http https)] => 'socks://'.$self->get_socksproxy.':1080');
     }
-
-    bless($self,$class);
-
     ## Hooks for testing during builds.  Doesn't connect to a real cluster.
-    if ( exists $self->{'conf'}->{'_test_namenodeinfo'} ){
+    if ( defined $self->_test_namenodeinfo ){
 	my $test_nn_string;
 	{
 	    local $/=undef;
-	    open (my $fh, '<', $self->{'conf'}->{'_test_namenodeinfo'}) or die "Couldn't open file: $!";
+	    open (my $fh, '<', $self->_test_namenodeinfo) or die "Couldn't open file: $!";
 	    $test_nn_string = <$fh>;
 	    close $fh;
 	}
 	$self->parse_nn_jmx($test_nn_string);
     }else{
-	if ( exists $self->{'namenode'} ){
+	if ( defined $self->get_namenode ){
 	    $self->gather_nn_jmx('NameNodeInfo');
 	}
     }
-    
     ## Hooks for testing during builds.  Doesn't connect to a real cluster.
-    if ( exists $self->{'conf'}->{'_test_jobtrackerinfo'} ){
+    if ( defined $self->_test_jobtrackerinfo ){
 	my $test_jt_string;
 	{
 	    local $/=undef;
-	    open(my $fh, '<', $self->{'conf'}->{'_test_jobtrackerinfo'}) or die "Couldn't open file: $!";
+	    open(my $fh, '<', $self->_test_jobtrackerinfo) or die "Couldn't open file: $!";
 	    $test_jt_string = <$fh>;
 	    close $fh;
 	}
 	$self->parse_jt_jmx($test_jt_string);
     }else{
-	if ( exists $self->{'jobtracker'} ){
+	if ( defined $self->get_jobtracker ){
 	    $self->gather_jt_jmx('JobTrackerInfo');
 	}
     }
     
     ## Hooks for testing during builds.  Doesn't connect to a real cluster.
-    if ( exists $self->{'conf'}->{'_test_resourcemanagerinfo'} ){
+    if ( defined $self->_test_resourcemanagerinfo ){
 	my $test_rm_string;
 	{
 	    local $/=undef;
-	    open(my $fh, '<', $self->{'conf'}->{'_test_resourcemanagerinfo'}) or die "Couldn't open file: $!";
+	    open(my $fh, '<', $self->_test_resourcemanagerinfo) or die "Couldn't open file: $!";
 	    $test_rm_string = <$fh>;
 	    close $fh;
 	}
 	$self->parse_rm_jmx($test_rm_string);
     }else{
-	if ( exists $self->{'resourcemanager'} ){
+	if ( defined $self->get_resourcemanager ){
 	    $self->gather_rm_jmx('RMNMInfo');
 	}
     }
@@ -167,151 +161,22 @@ sub new{
     return $self;
 }
 
-
-=pod
-
-=head2 get_namenode ()
-
-=over 4
-
-=item Description
-
-Returns the JobTracker from instantiation
-
-=back
-
-=cut
-sub get_namenode{
-    my $self=shift;
-    return $self->{'namenode'};
-}
-
-=pod
-
-=head2 get_namenode ()
-
-=over 4
-
-=item Description
-
-Returns the JobTracker from instantiation
-
-=back
-
-=cut
-sub get_jobtracker{
-    my $self=shift;
-    return $self->{'jobtracker'};
-}
-
-sub get_secondarynamenode{
-    my $self=shift;
-    return $self->{'secondarynamenode'};
-}
-
-=pod
-
-=head2 get_namenode ()
-
-=over 4
-
-=item Description
-
-Returns the Socks Proxy from instantiation
-
-=back
-
-=cut
-sub get_socksproxy{
-    my $self=shift;
-    return $self->{'socksproxy'};
-}
-
-
-=pod
-
-=head2 datanode_live_list ()
-
-=over 4
-
-=item Description
-
-Returns a list of the current live DataNodes.
-
-=item Return values
-
-Array containing hostnames.
-
-=back
-
-=cut
 sub datanode_live_list{
     my $self=shift;
     return keys %{$self->{'NameNodeInfo_LiveNodes'}};
 }
 
-=pod
-
-=head2 datanode_dead_list ()
-
-=over 4
-
-=item Description
-
-Returns a list of the current dead DataNodes.
-
-=item Return values
-
-Array containing hostnames.
-
-=back
-
-=cut
 sub datanode_dead_list{
     my $self=shift;
     return keys %{$self->{'NameNodeInfo_DeadNodes'}};
 }
 
-=pod
-
-=head2 datanode_decom_list ()
-
-=over 4
-
-=item Description
-
-Returns a list of the currently decommissioning DataNodes.
-
-=item Return values
-
-Array containing hostnames.
-
-=back
-
-=cut
 sub datanode_decom_list{
     my $self=shift;
     return keys %{$self->{'NameNodeInfo_DecomNodes'}};
 }
 
 
-=pod
-
-=head2 nodemanager_live_list ()
-
-=over 4
-
-=item Description
-
-Returns a list of the current live NodeManagers.
-
-=item Return values
-
-Array containing hostnames.
-
-=back
-
-=cut
 sub nodemanager_live_list{
     my $self=shift;
     my @returnValue=();
@@ -321,23 +186,6 @@ sub nodemanager_live_list{
     return @returnValue;
 }
 
-=pod
-
-=head2 tasktracker_live_list ()
-
-=over 4
-
-=item Description
-
-Returns a list of the current live TaskTrackers.
-
-=item Return values
-
-Array containing hostnames.
-
-=back
-
-=cut
 sub tasktracker_live_list{
     my $self=shift;
     my @returnValue=();
@@ -348,23 +196,6 @@ sub tasktracker_live_list{
     return @returnValue;
 }
 
-=pod
-
-=head2 tasktracker_blacklist_list ()
-
-=over 4
-
-=item Description
-
-Returns a list of the current blacklisted TaskTrackers.
-
-=item Return values
-
-Array containing hostnames.
-
-=back
-
-=cut
 sub tasktracker_blacklist_list{
     my $self=shift;
     my @returnValue=();
@@ -374,23 +205,6 @@ sub tasktracker_blacklist_list{
     return @returnValue;
 }
 
-=pod
-
-=head2 tasktracker_graylist_list ()
-
-=over 4
-
-=item Description
-
-Returns a list of the current graylisted TaskTrackers.
-
-=item Return values
-
-Array containing hostnames.
-
-=back
-
-=cut
 sub tasktracker_graylist_list{
     my $self=shift;
     my @returnValue=();
@@ -407,7 +221,7 @@ sub gather_nn_jmx{
     if ($bean eq 'NameNodeInfo'){
 	$qry='Hadoop%3Aservice%3DNameNode%2Cname%3DNameNodeInfo';
     }
-    my $jmx_url= "http://".$self->{'namenode'}.":50070/jmx?qry=$qry";
+    my $jmx_url= "http://".$self->get_namenode.":".$self->get_namenode_port."/jmx?qry=$qry";
     my $response = $self->{'ua'}->get($jmx_url);
     if (! $response->is_success) {
 	print "Can't get JMX data from Namenode: $@";
@@ -441,7 +255,7 @@ sub gather_jt_jmx{
     if ($bean eq "JobTrackerInfo"){
 	$qry='Hadoop%3Aservice%3DJobTracker%2Cname%3DJobTrackerInfo';
     }
-    my $jmx_url= "http://".$self->{'jobtracker'}.":50030/jmx?qry=$qry";
+    my $jmx_url= "http://".$self->get_jobtracker.":".$self->get_jobtracker_port."/jmx?qry=$qry";
     my $response = $self->{'ua'}->get($jmx_url);
     if (! $response->is_success) {
 	print "Can't get JMX data from JobTracker: $@";
@@ -475,7 +289,7 @@ sub gather_rm_jmx{
     if ($bean eq "RMNMInfo"){
 	$qry='Hadoop%3Aservice%3DResourceManager%2Cname%3DRMNMInfo';
     }
-    my $jmx_url= "http://".$self->{'resourcemanager'}.":8088/jmx?qry=$qry";
+    my $jmx_url= "http://".$self->get_resourcemanager.":".$self->get_resourcemanager_port."/jmx?qry=$qry";
     my $response = $self->{'ua'}->get($jmx_url);
     if (! $response->is_success) {
 	print "Can't get JMX data from ResourceManager: $@";
@@ -501,16 +315,174 @@ sub parse_rm_jmx{
 }
 
 1;
-# ****************************************************************************
-#
-#   POD FOOTER
-#
-# ****************************************************************************
 
+
+__END__
 =pod
 
-=for html
-</BLOCKQUOTE>
+=head1 NAME
+
+Hadoop::Admin - Module for administration of Hadoop clusters
+
+=head1 VERSION
+
+version 0.4
+
+=head1 SYNOPSIS
+
+    use Hadoop::Admin; 
+
+    my $cluster=Hadoop::Admin->new({
+      'namenode'          => 'namenode.host.name',
+      'jobtracker'        => 'jobtracker.host.name',
+    });
+
+    print $cluster->datanode_live_list();
+
+=head1 DESCRIPTION
+
+This module connects to Hadoop servers using http.  The JMX Proxy
+Servlet is queried for specific mbeans.
+
+This module requires Hadoop the changes in
+https://issues.apache.org/jira/browse/HADOOP-7144.  They are available
+in versions 0.20.204.0, 0.23.0 or later.
+
+=head1 INTERFACE FUNCTIONS
+
+=head2 new ()
+
+=over 4
+
+=item Description
+
+Create a new instance of the Hadoop::Admin class.  
+
+The method requires a hash containing at minimum one of the
+namenode's, the resourcemanager's, and the jobtracker's hostnames.
+Optionally, you may provide a socksproxy for the http connection.  Use
+of both a jobtracker and resourcemanger is prohibited.  It is not a
+valid cluster configuration to have both a jobtracker and a
+resourcemanager.
+
+Creation of this object will cause an immediate querry to servers
+provided to the constructor.
+
+=item namenode => <hostname>
+
+=item namenode_port => <port number>
+
+=item jobtracker => <hostname>
+
+=item jobtracker_port => <port number>
+
+=item resourcemanager => <hostname>
+
+=item resourcemanager_port => <port number>
+
+=item socksproxy => <hostname>
+
+=item socksproxy_port => <port number>
+
+=back
+
+=head2 datanode_live_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the current live DataNodes.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
+
+=head2 datanode_dead_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the current dead DataNodes.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
+
+=head2 datanode_decom_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the currently decommissioning DataNodes.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
+
+=head2 nodemanager_live_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the current live NodeManagers.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
+
+=head2 tasktracker_live_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the current live TaskTrackers.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
+
+=head2 tasktracker_blacklist_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the current blacklisted TaskTrackers.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
+
+=head2 tasktracker_graylist_list ()
+
+=over 4
+
+=item Description
+
+Returns a list of the current graylisted TaskTrackers.
+
+=item Return values
+
+Array containing hostnames.
+
+=back
 
 =head1 KNOWN BUGS
 
@@ -528,7 +500,19 @@ Module available on CPAN as Hadoop::Admin:
 
 http://search.cpan.org/~cwimmer/
 
+=for Pod::Coverage gather_jt_jmx
+gather_nn_jmx
+gather_rm_jmx
+parse_jt_jmx
+parse_nn_jmx
+parse_rm_jmx
+BUILD
+
 =head1 AUTHOR
+
+Charles A. Wimmmer (charles@wimmer.net)
+
+=head1 COPYRIGHT AND LICENSE
 
 This software is Copyright (c) 2012 by Charles A. Wimmer.
 
@@ -536,47 +520,5 @@ This is free software, licensed under:
 
   The (three-clause) BSD License
 
-The BSD License
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-  * Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-
-  * Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution. 
-
-  * Neither the name of Charles A. Wimmer nor the names of its
-    contributors may be used to endorse or promote products derived from
-    this software without specific prior written permission. 
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 =cut
 
-=begin Pod::Coverage
-
-gather_jt_jmx
-gather_nn_jmx
-gather_rm_jmx
-get_jobtracker
-get_secondarynamenode
-get_socksproxy
-parse_jt_jmx
-parse_nn_jmx
-parse_rm_jmx
-
-=end Pod::Coverage

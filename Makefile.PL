@@ -14,6 +14,7 @@ my %WriteMakefileArgs = (
   "BUILD_REQUIRES" => {
     "English" => 0,
     "Pod::Coverage::TrustPod" => 0,
+    "TAP::Formatter::JUnit" => 0,
     "TAP::Harness::JUnit" => 0,
     "Test::More" => 0,
     "Test::Perl::Critic" => 0,
@@ -32,10 +33,11 @@ my %WriteMakefileArgs = (
     "LWP::Protocol::https" => 0,
     "LWP::Protocol::socks" => 0,
     "LWP::UserAgent" => 0,
+    "Moose" => 0,
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "0.3",
+  "VERSION" => "0.4",
   "test" => {
     "TESTS" => "t/*.t"
   }
